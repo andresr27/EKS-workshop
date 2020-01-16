@@ -1,9 +1,4 @@
-CONSOLE
-
-
-
-
-# Set up Access to the cluster for tiller
+# Set up Access to the cluster for Tiller
 
 > kubectl apply -f rbac.yaml
 > helm init --service-account tiller 
@@ -101,14 +96,7 @@ Fix
 > kubectl exec -it <YOUR-READINESS-POD-NAME> -- touch /tmp/healthy
 
 
-
-
-
-
-
-# HPA
-
-Deploy the Metrics Server
+# Deploy the Metrics Server
 
 Method 1: Works but gives unknown for the target CPU when getting hpa
 
@@ -156,30 +144,29 @@ spec:
     - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
     image: k8s.gcr.io/metrics-server-amd64:v0.3.6
 
-
-# Deploy metric-server: Delete
-
+Does this step need to go:
 
 > kubectl apply -f metrics-server-0.3.6/deploy/1.8+/
 
+
+
+# Verify metric-server is running correctly
 
 Verify deployment is running
 
 > kubectl get deployment metrics-server -n kube-system
 
-
 Confirm the Metrics API is available
 
 > kubectl get apiservice v1beta1.metrics.k8s.io -o yaml
 
-> kubectl get pods -n kube-system
-
 > kubectl get pods -n kube-system | grep metrics-server
+
+> kubectl describe pods -n kube-system
 
 > kubectl logs -n kube-system --since=1h metrics-server-596d74f577-4sfsh
 
- unable to fully collect metrics: unable to fully scrape metrics from source kubelet_summary
-
+Typical error: Unable to fully collect metrics: unable to fully scrape metrics from source kubelet_summary
 
 
 
@@ -195,8 +182,6 @@ Confirm the Metrics API is available
 
 
 
-
-
 # Create a HPA resource
 
 > kubectl get hpa
@@ -204,6 +189,11 @@ Confirm the Metrics API is available
 !!!! This command returns unknown on target metric -> see method 2 to deploy metrics
 
 > kubectl autoscale deployment php-apache --cpu-percent=50 --min=1 --max=10
+
+This command should not return unknown for target CPU after a couple of minutes, if it happens look for the edit in the metric server deployment section.
+
+> kubectl get hpa -w
+
 
 Create new container to test:
 
@@ -263,6 +253,29 @@ kubectl delete deployment php-apache load-generator
 
 # RBAC
 
+> aws iam list-users
+
+If it rbac-user doesn't exist, create it.
+
+> aws iam create-user --user-name rbac-user
+> aws iam create-access-key --user-name rbac-user | tee /tmp/create_output.json
+
+
+
+aws iam list-access-keys --user-name rbac-user
+
+export AWS_SECRET_ACCESS_KEY=$(cat /tmp/create_output.json | jq '.AccessKey.SecretAccessKey')
+export AWS_ACCESS_KEY_ID=$(cat /tmp/create_output.json | jq '.AccessKey.AccessKeyId')
+
+!!! Comas must be stripped for this to work
+
+!!! rbacuser_cred returns null and therefore changes the user to the cluster admin.
+
+
+> aws iam get-user --user-name rbac-user | jq '.User.Arn'
+
+> export ACCOUNT_ID=<your_arn_id>
+
 cat << EoF > aws-auth.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -275,12 +288,31 @@ data:
       username: rbac-user
 EoF
 
+
+
 How to get account ID
+
+> aws iam get-user --user-name rbac-user
+
+{
+    "User": {
+        "Path": "/",
+        "UserName": "rbac-user",
+        "UserId": "AIDAQDCE6O66HDM3L7ZMO",
+        "Arn": "arn:aws:iam::006587054012:user/rbac-user",
+        "CreateDate": "2020-01-07T18:18:30Z"
+    }
+}
+
+
 
 > aws iam get-user --user-name rbac-user
 
 An error occurred (InvalidClientTokenId) when calling the GetUser operation: The security token included in the request is invalid.
  
+
+
+
 
 
 

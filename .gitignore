@@ -1,0 +1,4 @@
+aws-auth.yaml
+eks_ca.pem
+create_output.json
+ecsdemo/*
