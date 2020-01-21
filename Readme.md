@@ -253,6 +253,12 @@ kubectl delete deployment php-apache load-generator
 
 # RBAC
 
+ 8260  kubectl create namespace rbac-test
+ 8261  kubectl create deploy nginx --image=nginx -n rbac-test
+ 8262  kubectl get all -n rbac-tes
+
+
+
 > aws iam list-users
 
 If it rbac-user doesn't exist, create it.
@@ -267,9 +273,11 @@ aws iam list-access-keys --user-name rbac-user
 export AWS_SECRET_ACCESS_KEY=$(cat /tmp/create_output.json | jq '.AccessKey.SecretAccessKey')
 export AWS_ACCESS_KEY_ID=$(cat /tmp/create_output.json | jq '.AccessKey.AccessKeyId')
 
-!!! Comas must be stripped for this to work
+MUST FIX !!!!
 
-!!! rbacuser_cred returns null and therefore changes the user to the cluster admin.
+- Comas must be stripped for this to work
+
+- rbacuser_cred returns null and therefore changes the user to the cluster admin.
 
 
 > aws iam get-user --user-name rbac-user | jq '.User.Arn'
@@ -311,9 +319,51 @@ How to get account ID
 An error occurred (InvalidClientTokenId) when calling the GetUser operation: The security token included in the request is invalid.
  
 
+> kubectl apply -f rbacuser-role.yaml
+> kubectl apply -f rbacuser-role-binding.yaml
+
+Verify user identity.
+
+>. rbacuser_creds.sh; aws sts get-caller-identity
+
+If it doesn't change verify that env variables created don't have quote on the values.
 
 
 
+Clean UP
+
+>unset AWS_SECRET_ACCESS_KEY
+>unset AWS_ACCESS_KEY_ID
+>kubectl delete namespace rbac-test
+>rm aws-auth.yaml
+>rm rbacuser_creds.sh
+>rm /tmp/create_output.json
+>	rm rbacuser-role.yaml
 
 
+# IAM ACCESS ROLES
+
+"
+Amazon EKS supports IAM Roles for Service Accounts (IRSA) that allows cluster operators to map AWS IAM Roles to Kubernetes Service Accounts.
+This provides fine-grained permission management for apps that run on EKS and use other AWS services. These could be apps that use S3, any other data services (RDS, MQ, STS, DynamoDB), or Kubernetes components like AWS ALB Ingress controller or ExternalDNS.
+"
+
+Taken from: https://eksctl.io/usage/iamserviceaccounts/
+
+You can easily create IAM Role and Service Account pairs with eksctl.
+
+    NOTE: if you used instance roles, and are considering to use IRSA instead, you shouldn’t mix the two.
+
+Retrieve OpenID Connect issuer URL:
+
+> aws eks describe-cluster --name terraform-eks-demo --query cluster.identity.oidc.issuer --output text
+
+> https://oidc.eks.us-west-2.amazonaws.com/id/255113AE244CEE9FA91EF54AD718E710
+
+Error: command returns no route to host to a public IP, where does it get from?
+
+> eksctl utils associate-iam-oidc-provider --cluster terraform-eks-demo --approve
+
+
+	
 

@@ -1,4 +1,7 @@
+
 aws-auth.yaml
+terraform.tfstate
+*.swp
 eks_ca.pem
 create_output.json
 ecsdemo/*
